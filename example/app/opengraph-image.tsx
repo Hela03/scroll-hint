@@ -1,6 +1,5 @@
 import { ImageResponse } from "next/og";
 
-export const runtime = "edge";
 export const alt = "scroll-hint — Scroll edge indicators for React. Shadows and solid lines using IntersectionObserver.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
