@@ -8,15 +8,19 @@ Scroll edge indicators for React. Shows shadows and/or solid lines on the edges 
 npm install @emmgfx/scroll-hint
 ```
 
+Requires React 18 or newer. TypeScript types are included, and the component is marked `"use client"`, so it works in the Next.js App Router without a wrapper.
+
 ## Usage
 
 ```jsx
 import { ScrollHint } from "@emmgfx/scroll-hint";
 
-<ScrollHint>
+<ScrollHint style={{ height: 300 }}>
   {/* your scrollable content */}
 </ScrollHint>
 ```
+
+Give the component a bounded size on the axis it scrolls: a `height` or `maxHeight` for vertical scrolling, or a parent that constrains it, such as a flex column with `minHeight: 0`. Without one it grows to fit its content, so nothing scrolls and no indicator shows.
 
 ## Props
 
