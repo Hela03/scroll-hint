@@ -1,8 +1,8 @@
 "use client";
 
-import { Tabs, TabsList, TabsTab, TabsPanels, TabsPanel } from "@emmgfx/activity-tabs";
+import { Tabs, TabsList, TabsTab, TabsPanels, TabsPanel, useActiveTab } from "@emmgfx/activity-tabs";
 import { ScrollHint } from "@emmgfx/scroll-hint";
-import { ReactNode } from "react";
+import { ReactNode, RefObject, useEffect, useEffectEvent, useRef } from "react";
 
 export interface DemoTab {
   id: string;
@@ -14,58 +14,98 @@ export interface DemoTab {
   demo: ReactNode;
 }
 
+// Keeps the active tab and the URL hash in sync, so every demo has its own
+// link (/#horizontal, /#line-shadow...). Lives inside <Tabs> to reach its state.
+function TabHashSync({ ids, rootRef }: { ids: string[]; rootRef: RefObject<HTMLDivElement | null> }) {
+  const [activeTab, setActiveTab] = useActiveTab();
+
+  // Hash → tab, on load and whenever the hash changes (a link, back/forward)
+  const openFromHash = useEffectEvent(() => {
+    const id = window.location.hash.slice(1);
+    if (!ids.includes(id)) return;
+    setActiveTab(id);
+    // No element has that id, so the browser doesn't jump: bring the tab into
+    // view inside the tab list (it scrolls sideways on small screens), then
+    // the demos to the top of the page
+    rootRef.current?.querySelector(`[data-tab-id="${id}"]`)?.closest("button")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    rootRef.current?.scrollIntoView({ block: "start" });
+  });
+  useEffect(() => {
+    openFromHash();
+    const onHashChange = () => openFromHash();
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  // Tab → hash, only when the tab actually changes: loading the page without
+  // a hash leaves the URL clean. replaceState, so tabs don't pile up history
+  const previousTab = useRef(activeTab);
+  useEffect(() => {
+    if (activeTab === previousTab.current) return;
+    previousTab.current = activeTab;
+    if (window.location.hash !== `#${activeTab}`) window.history.replaceState(null, "", `#${activeTab}`);
+  }, [activeTab]);
+
+  return null;
+}
+
 export function DemoTabs({ tabs }: { tabs: DemoTab[] }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+
   return (
-    <Tabs initialActiveTab={tabs[0].id} className="border-t border-(--color-border)">
+    <div ref={rootRef}>
+      <Tabs initialActiveTab={tabs[0].id} className="border-t border-(--color-border)">
+        <TabHashSync ids={tabs.map((tab) => tab.id)} rootRef={rootRef} />
 
-      {/* Tab list */}
-      <TabsList className="border-b border-(--color-border)">
-        <ScrollHint direction="horizontal" shadowSize={32}>
-          <div className="flex">
-            {tabs.map((tab) => (
-              <TabsTab
-                key={tab.id}
-                tabId={tab.id}
-                className="px-6 py-4 text-sm font-medium text-(--color-body) border-b-2 border-transparent whitespace-nowrap hover:text-(--color-heading) transition-colors"
-                activeClassName="px-6 py-4 text-sm font-medium text-(--color-accent) border-b-2 border-(--color-accent) whitespace-nowrap"
-              >
-                {tab.label}
-              </TabsTab>
-            ))}
-          </div>
-        </ScrollHint>
-      </TabsList>
-
-      {/* Panels */}
-      <TabsPanels>
-        {tabs.map((tab) => (
-          <TabsPanel key={tab.id} tabId={tab.id}>
-            {/* Header */}
-            <div className="px-10 py-8 border-b border-(--color-border) text-left max-sm:px-6 max-sm:py-6">
-              <div className="flex items-center gap-2 mb-2">
-                <code className="text-[13px] font-mono px-1.5 py-0.5 rounded bg-(--color-surface) text-(--color-heading)">{tab.prop}</code>
-                {tab.badge && (
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full border text-(--color-accent) bg-(--color-accent-muted) border-(--color-accent-border)">
-                    {tab.badge}
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-(--color-body)">{tab.description}</p>
+        {/* Tab list */}
+        <TabsList className="border-b border-(--color-border)">
+          <ScrollHint direction="horizontal" shadowSize={32}>
+            <div className="flex">
+              {tabs.map((tab) => (
+                <TabsTab
+                  key={tab.id}
+                  tabId={tab.id}
+                  className="px-6 py-4 text-sm font-medium text-(--color-body) border-b-2 border-transparent whitespace-nowrap hover:text-(--color-heading) transition-colors"
+                  activeClassName="px-6 py-4 text-sm font-medium text-(--color-accent) border-b-2 border-(--color-accent) whitespace-nowrap"
+                >
+                  <span data-tab-id={tab.id}>{tab.label}</span>
+                </TabsTab>
+              ))}
             </div>
+          </ScrollHint>
+        </TabsList>
 
-            {/* Demo + Code */}
-            <div className="grid grid-cols-1 md:grid-cols-2 md:grid-rows-[240px]">
-              <div className="order-1 border-b border-(--color-border) overflow-visible md:border-b-0 md:border-r md:overflow-auto md:h-60" style={{ background: "#292d3e" }}>
-                {tab.code}
+        {/* Panels */}
+        <TabsPanels>
+          {tabs.map((tab) => (
+            <TabsPanel key={tab.id} tabId={tab.id}>
+              {/* Header */}
+              <div className="px-10 py-8 border-b border-(--color-border) text-left max-sm:px-6 max-sm:py-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <code className="text-[13px] font-mono px-1.5 py-0.5 rounded bg-(--color-surface) text-(--color-heading)">{tab.prop}</code>
+                  {tab.badge && (
+                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-full border text-(--color-accent) bg-(--color-accent-muted) border-(--color-accent-border)">
+                      {tab.badge}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-(--color-body)">{tab.description}</p>
               </div>
-              <div className="order-2 bg-white dark:bg-[#16171d] h-55 md:h-auto">
-                {tab.demo}
-              </div>
-            </div>
-          </TabsPanel>
-        ))}
-      </TabsPanels>
 
-    </Tabs>
+              {/* Demo + Code */}
+              <div className="grid grid-cols-1 md:grid-cols-2 md:grid-rows-[240px]">
+                <div className="order-1 border-b border-(--color-border) overflow-visible md:border-b-0 md:border-r md:overflow-auto md:h-60" style={{ background: "#292d3e" }}>
+                  {tab.code}
+                </div>
+                <div className="order-2 bg-white dark:bg-[#16171d] h-55 md:h-auto">
+                  {tab.demo}
+                </div>
+              </div>
+            </TabsPanel>
+          ))}
+        </TabsPanels>
+
+      </Tabs>
+    </div>
   );
 }
